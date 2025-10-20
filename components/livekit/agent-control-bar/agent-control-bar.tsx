@@ -1,3 +1,4 @@
+// AgentControlBar
 'use client';
 
 import { type HTMLAttributes, useCallback, useState } from 'react';

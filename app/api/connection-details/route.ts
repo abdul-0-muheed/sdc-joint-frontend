@@ -11,6 +11,7 @@ type ConnectionDetails = {
 
 // NOTE: you are expected to define the following environment variables in `.env.local`:
 const API_KEY = process.env.LIVEKIT_API_KEY;
+console.log("API_KEY:", API_KEY);
 const API_SECRET = process.env.LIVEKIT_API_SECRET;
 const LIVEKIT_URL = process.env.LIVEKIT_URL;
 
@@ -27,6 +28,8 @@ export async function POST(req: Request) {
     }
     if (API_SECRET === undefined) {
       throw new Error('LIVEKIT_API_SECRET is not defined');
+    }else{
+      console.log("API_SECRET is defined");
     }
 
     // Parse agent configuration from request body
