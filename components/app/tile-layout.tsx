@@ -1,238 +1,264 @@
-import React, { useMemo } from 'react';
-import { Track } from 'livekit-client';
-import { AnimatePresence, motion } from 'motion/react';
-import {
-  BarVisualizer,
-  type TrackReference,
-  VideoTrack,
-  useLocalParticipant,
-  useTracks,
-  useVoiceAssistant,
-} from '@livekit/components-react';
-import { cn } from '@/lib/utils';
+// CharacterVideo.tsx
+import React, { useEffect, useState, useRef, CSSProperties } from 'react';
+import { useVoiceAssistant } from '@livekit/components-react';
 
-const MotionContainer = motion.create('div');
+type AgentState = 'idle' | 'speaking' | 'thinking' | 'listening' | 'unknown';
 
-const ANIMATION_TRANSITION = {
-  type: 'spring',
-  stiffness: 675,
-  damping: 75,
-  mass: 1,
+const VIDEO_SOURCES: Record<AgentState, string> = {
+  idle: 'idle1.mp4',
+  speaking: 'speaking1.mp4',
+  thinking: 'thinking1.mp4',
+  listening: 'listening1.mp4',
+  unknown: 'idle1.mp4', // Fallback
 };
 
-const classNames = {
-  // GRID
-  // 2 Columns x 3 Rows
-  grid: [
-    'h-full w-full',
-    'grid gap-x-2 place-content-center',
-    'grid-cols-[1fr_1fr] grid-rows-[90px_1fr_90px]',
-  ],
-  // Agent
-  // chatOpen: true,
-  // hasSecondTile: true
-  // layout: Column 1 / Row 1
-  // align: x-end y-center
-  agentChatOpenWithSecondTile: ['col-start-1 row-start-1', 'self-center justify-self-end'],
-  // Agent
-  // chatOpen: true,
-  // hasSecondTile: false
-  // layout: Column 1 / Row 1 / Column-Span 2
-  // align: x-center y-center
-  agentChatOpenWithoutSecondTile: ['col-start-1 row-start-1', 'col-span-2', 'place-content-center'],
-  // Agent
-  // chatOpen: false
-  // layout: Column 1 / Row 1 / Column-Span 2 / Row-Span 3
-  // align: x-center y-center
-  agentChatClosed: ['col-start-1 row-start-1', 'col-span-2 row-span-3', 'place-content-center'],
-  // Second tile
-  // chatOpen: true,
-  // hasSecondTile: true
-  // layout: Column 2 / Row 1
-  // align: x-start y-center
-  secondTileChatOpen: ['col-start-2 row-start-1', 'self-center justify-self-start'],
-  // Second tile
-  // chatOpen: false,
-  // hasSecondTile: false
-  // layout: Column 2 / Row 2
-  // align: x-end y-end
-  secondTileChatClosed: ['col-start-2 row-start-3', 'place-content-end'],
-};
+const CharacterVideo: React.FC = () => {
+  const { state: lkAgentState } = useVoiceAssistant();
+  const [currentVideoState, setCurrentVideoState] = useState<AgentState>('idle');
+  const [isPlayingTransition, setIsPlayingTransition] = useState(false);
 
-export function useLocalTrackRef(source: Track.Source) {
-  const { localParticipant } = useLocalParticipant();
-  const publication = localParticipant.getTrackPublication(source);
-  const trackRef = useMemo<TrackReference | undefined>(
-    () => (publication ? { source, participant: localParticipant, publication } : undefined),
-    [source, publication, localParticipant]
-  );
-  return trackRef;
-}
+  const videoRefs = useRef<Record<AgentState, HTMLVideoElement | null>>({
+    idle: null,
+    speaking: null,
+    thinking: null,
+    listening: null,
+    unknown: null,
+  });
 
-interface TileLayoutProps {
-  chatOpen: boolean;
-}
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Ref to track ongoing play promises to handle interruptions gracefully
+  const currentPlayPromiseRef = useRef<Promise<void> | null>(null);
 
-export function TileLayout({ chatOpen }: TileLayoutProps) {
-  const {
-    state: agentState,
-    audioTrack: agentAudioTrack,
-    videoTrack: agentVideoTrack,
-  } = useVoiceAssistant();
-  const [screenShareTrack] = useTracks([Track.Source.ScreenShare]);
-  const cameraTrack: TrackReference | undefined = useLocalTrackRef(Track.Source.Camera);
+  const conceptualState: AgentState = lkAgentState === 'listening'
+    ? 'listening'
+    : lkAgentState === 'thinking'
+      ? 'thinking'
+      : lkAgentState === 'speaking'
+        ? 'speaking'
+        : 'idle';
 
-  const isCameraEnabled = cameraTrack && !cameraTrack.publication.isMuted;
-  const isScreenShareEnabled = screenShareTrack && !screenShareTrack.publication.isMuted;
-  const hasSecondTile = isCameraEnabled || isScreenShareEnabled;
+  useEffect(() => {
+    if (conceptualState !== currentVideoState) {
+      console.log(`State changed from ${currentVideoState} to ${conceptualState}. Preparing transition.`);
+      setIsPlayingTransition(true);
+    }
+  }, [conceptualState, currentVideoState]);
 
-  const animationDelay = chatOpen ? 0 : 0.15;
-  const isAvatar = agentVideoTrack !== undefined;
-  const videoWidth = agentVideoTrack?.publication.dimensions?.width ?? 0;
-  const videoHeight = agentVideoTrack?.publication.dimensions?.height ?? 0;
+  // Effect to manage video loading - runs only once
+  useEffect(() => {
+    console.log("Preloading videos...");
+    Object.entries(VIDEO_SOURCES).forEach(([state, src]) => {
+      const video = videoRefs.current[state as AgentState];
+      if (video && video.src !== src) {
+        video.src = src;
+        video.load();
+      }
+    });
+  }, []); // Empty dependency array
+
+  // Effect to handle video playback and visibility
+  useEffect(() => {
+    const playVideoAtSpeed = async (video: HTMLVideoElement, speed: number, shouldLoop: boolean) => {
+      if (!video) return;
+
+      // Pause the video first if it's playing to reset state (important before setting currentTime)
+      if (!video.paused) {
+        video.pause();
+        // Optionally, wait a tick to ensure pause is processed if needed
+        // await new Promise(resolve => setTimeout(resolve, 0));
+      }
+
+      // Clear any previous play promise if it exists
+      if (currentPlayPromiseRef.current) {
+          // While we can't directly cancel a Promise, resolving/rejecting the previous one's
+          // associated state helps manage expectations. The key is handling the *new* promise.
+          currentPlayPromiseRef.current = null;
+      }
+
+      try {
+        video.currentTime = 0; // Reset time for transitions or new state start
+        video.playbackRate = speed;
+        video.loop = shouldLoop;
+
+        console.log(`Attempting to play video for state with speed ${speed}, loop ${shouldLoop}`);
+        const playPromise = video.play();
+
+        if (playPromise !== undefined) {
+          // Store the current play promise
+          currentPlayPromiseRef.current = playPromise.then(() => {
+              console.log(`Successfully played video at ${speed}x, loop: ${shouldLoop}`);
+              // Clear the ref on successful play
+              if (currentPlayPromiseRef.current === playPromise) {
+                  currentPlayPromiseRef.current = null;
+              }
+          }).catch(error => {
+              // Check if the error is due to interruption (e.g., pause called)
+              if (error.name === 'AbortError' || error.name === 'NotAllowedError') {
+                  console.log(`Play request for state interrupted or not allowed:`, error);
+              } else {
+                  console.error(`Error attempting to play video at ${speed}x:`, error);
+              }
+              // Clear the ref on error as well
+              if (currentPlayPromiseRef.current === playPromise) {
+                  currentPlayPromiseRef.current = null;
+              }
+              // If this error happened during a transition, ensure transition state is reset
+              if (isPlayingTransition) {
+                  setIsPlayingTransition(false);
+              }
+          });
+          // Don't await here directly in the main try block to allow cleanup to run if needed
+          // The actual handling happens in the .then/.catch above
+        } else {
+          console.warn("Play promise was undefined for video");
+        }
+      } catch (error) {
+        // This catch handles synchronous errors *before* play() is even called or other issues
+        console.error(`Unexpected error in playVideoAtSpeed:`, error);
+        if (isPlayingTransition) {
+          setIsPlayingTransition(false);
+        }
+      }
+    };
+
+    const pauseVideo = (video: HTMLVideoElement) => {
+      if (video) {
+        video.loop = false;
+        if (!video.paused) {
+          video.pause();
+        }
+      }
+    };
+
+    if (isPlayingTransition) {
+      const conceptualVideo = videoRefs.current[conceptualState];
+      if (conceptualVideo) {
+        Object.entries(videoRefs.current).forEach(([state, video]) => {
+          if (video && state !== conceptualState) {
+            pauseVideo(video);
+          }
+        });
+        console.log(`Playing transition video at 5x speed for conceptual state: ${conceptualState}`);
+        playVideoAtSpeed(conceptualVideo, 5, false);
+
+        const handleTransitionEnd = () => {
+          console.log(`Transition video finished or played briefly. Setting state to: ${conceptualState}`);
+          setCurrentVideoState(conceptualState);
+          setIsPlayingTransition(false);
+
+          if (transitionTimeoutRef.current) {
+            clearTimeout(transitionTimeoutRef.current);
+            transitionTimeoutRef.current = null;
+          }
+
+          if (conceptualState === 'listening') {
+            idleTimeoutRef.current = setTimeout(() => {
+              console.log("Listening timeout (10s) reached. Switching to idle.");
+              setCurrentVideoState('idle');
+            }, 10000);
+          }
+        };
+
+        transitionTimeoutRef.current = setTimeout(handleTransitionEnd, 500);
+      }
+    } else {
+      const currentStateVideo = videoRefs.current[currentVideoState];
+      if (currentStateVideo) {
+        Object.entries(videoRefs.current).forEach(([state, video]) => {
+          if (video && state !== currentVideoState) {
+            pauseVideo(video);
+          }
+        });
+        console.log(`Playing video normally (1x, looped) for current state: ${currentVideoState}`);
+        playVideoAtSpeed(currentStateVideo, 1, true);
+
+        if (currentVideoState === 'listening') {
+          if (idleTimeoutRef.current) {
+            clearTimeout(idleTimeoutRef.current);
+          }
+          idleTimeoutRef.current = setTimeout(() => {
+            console.log("Listening timeout (10s) reached. Switching to idle.");
+            setCurrentVideoState('idle');
+          }, 10000);
+        }
+      }
+    }
+
+    // Cleanup function: Pause all videos and clear timeouts
+    return () => {
+      console.log("Running cleanup effect for video playback.");
+      // Clear timeouts
+      if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current);
+        transitionTimeoutRef.current = null;
+      }
+      if (idleTimeoutRef.current) {
+        clearTimeout(idleTimeoutRef.current);
+        idleTimeoutRef.current = null;
+      }
+
+      // Pause all videos and reset loop
+      Object.values(videoRefs.current).forEach(video => {
+        if (video) {
+          video.loop = false;
+          if (!video.paused) {
+            video.pause(); // This might trigger the AbortError in the play promise if it's pending
+          }
+        }
+      });
+
+      // Clear the current play promise ref on cleanup to prevent setting state on unmounted component
+      // or handling an old promise. The playVideoAtSpeed catch block handles the error itself.
+      if (currentPlayPromiseRef.current) {
+          // We don't await this potential promise rejection here, just clear the ref.
+          // The rejection is handled in the .catch block of the promise itself.
+          currentPlayPromiseRef.current = null;
+      }
+    };
+  }, [currentVideoState, isPlayingTransition, conceptualState]); // Depend on state changes
+
+  const assignVideoRef = (state: AgentState) => (element: HTMLVideoElement | null) => {
+    videoRefs.current[state] = element;
+  };
+
+  // Define CSS styles for visibility and sizing, including outline removal
+ const hiddenStyle: CSSProperties = { display: 'none' };
+  const visibleStyle: CSSProperties = {
+    display: 'block',
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain', // Maintains aspect ratio, might cause letterboxing/pillarboxing
+    outline: 'none',      // Removed default browser outline
+    border: 'none',       // Removed default border
+    // Crop a small amount (e.g., 2-3 pixels) from the bottom to hide the line
+    // The inset values are top, right, bottom, left
+    clipPath: 'inset(0 0 2px 0)', // Crops 2px from the bottom edge
+    // Alternative clipPath values to try if 2px isn't enough or is too much:
+    // clipPath: 'inset(0 0 3px 0)', // Crops 3px from the bottom edge
+    // clipPath: 'inset(0 0 1px 0)', // Crops 1px from the bottom edge
+  };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-8 bottom-32 z-50 md:top-12 md:bottom-40">
-      <div className="relative mx-auto h-full max-w-2xl px-4 md:px-0">
-        <div className={cn(classNames.grid)}>
-          {/* Agent */}
-          <div
-            className={cn([
-              'grid',
-              !chatOpen && classNames.agentChatClosed,
-              chatOpen && hasSecondTile && classNames.agentChatOpenWithSecondTile,
-              chatOpen && !hasSecondTile && classNames.agentChatOpenWithoutSecondTile,
-            ])}
-          >
-            <AnimatePresence mode="popLayout">
-              {!isAvatar && (
-                // Audio Agent
-                <MotionContainer
-                  key="agent"
-                  layoutId="agent"
-                  initial={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    scale: chatOpen ? 1 : 5,
-                  }}
-                  transition={{
-                    ...ANIMATION_TRANSITION,
-                    delay: animationDelay,
-                  }}
-                  className={cn(
-                    'bg-background aspect-square h-[90px] rounded-md border border-transparent transition-[border,drop-shadow]',
-                    chatOpen && 'border-input/50 drop-shadow-lg/10 delay-200'
-                  )}
-                >
-                  <BarVisualizer
-                    barCount={5}
-                    state={agentState}
-                    options={{ minHeight: 5 }}
-                    trackRef={agentAudioTrack}
-                    className={cn('flex h-full items-center justify-center gap-1')}
-                  >
-                    <span
-                      className={cn([
-                        'bg-muted min-h-2.5 w-2.5 rounded-full',
-                        'origin-center transition-colors duration-250 ease-linear',
-                        'data-[lk-highlighted=true]:bg-foreground data-[lk-muted=true]:bg-muted',
-                      ])}
-                    />
-                  </BarVisualizer>
-                </MotionContainer>
-              )}
-
-              {isAvatar && (
-                // Avatar Agent
-                <MotionContainer
-                  key="avatar"
-                  layoutId="avatar"
-                  initial={{
-                    scale: 1,
-                    opacity: 1,
-                    maskImage:
-                      'radial-gradient(circle, rgba(0, 0, 0, 1) 0, rgba(0, 0, 0, 1) 20px, transparent 20px)',
-                    filter: 'blur(20px)',
-                  }}
-                  animate={{
-                    maskImage:
-                      'radial-gradient(circle, rgba(0, 0, 0, 1) 0, rgba(0, 0, 0, 1) 500px, transparent 500px)',
-                    filter: 'blur(0px)',
-                    borderRadius: chatOpen ? 6 : 12,
-                  }}
-                  transition={{
-                    ...ANIMATION_TRANSITION,
-                    delay: animationDelay,
-                    maskImage: {
-                      duration: 1,
-                    },
-                    filter: {
-                      duration: 1,
-                    },
-                  }}
-                  className={cn(
-                    'overflow-hidden bg-black drop-shadow-xl/80',
-                    chatOpen ? 'h-[90px]' : 'h-auto w-full'
-                  )}
-                >
-                  <VideoTrack
-                    width={videoWidth}
-                    height={videoHeight}
-                    trackRef={agentVideoTrack}
-                    className={cn(chatOpen && 'size-[90px] object-cover')}
-                  />
-                </MotionContainer>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <div
-            className={cn([
-              'grid',
-              chatOpen && classNames.secondTileChatOpen,
-              !chatOpen && classNames.secondTileChatClosed,
-            ])}
-          >
-            {/* Camera & Screen Share */}
-            <AnimatePresence>
-              {((cameraTrack && isCameraEnabled) || (screenShareTrack && isScreenShareEnabled)) && (
-                <MotionContainer
-                  key="camera"
-                  layout="position"
-                  layoutId="camera"
-                  initial={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    scale: 1,
-                  }}
-                  exit={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
-                  transition={{
-                    ...ANIMATION_TRANSITION,
-                    delay: animationDelay,
-                  }}
-                  className="drop-shadow-lg/20"
-                >
-                  <VideoTrack
-                    trackRef={cameraTrack || screenShareTrack}
-                    width={(cameraTrack || screenShareTrack)?.publication.dimensions?.width ?? 0}
-                    height={(cameraTrack || screenShareTrack)?.publication.dimensions?.height ?? 0}
-                    className="bg-muted aspect-square w-[90px] rounded-md object-cover"
-                  />
-                </MotionContainer>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-      </div>
+    <div className="relative w-[500px] h-auto overflow-hidden">
+      {(Object.keys(VIDEO_SOURCES) as AgentState[]).map((state) => (
+        <video
+          key={state}
+          ref={assignVideoRef(state)}
+          autoPlay={false}
+          muted
+          playsInline
+          preload="auto"
+          style={
+            (state === currentVideoState && !isPlayingTransition) ||
+            (state === conceptualState && isPlayingTransition)
+              ? visibleStyle // Apply the style with clip-path
+              : hiddenStyle
+          }
+        />
+      ))}
     </div>
   );
-}
+};
+
+export default CharacterVideo;

@@ -122,7 +122,7 @@ export function AgentControlBar({
           )}
 
           {/* Toggle Camera */}
-          {visibleControls.camera && (
+          {/* {visibleControls.camera && (
             <TrackSelector
               kind="videoinput"
               aria-label="Toggle camera"
@@ -134,10 +134,10 @@ export function AgentControlBar({
               onMediaDeviceError={handleCameraDeviceSelectError}
               onActiveDeviceChange={handleVideoDeviceChange}
             />
-          )}
+          )} */}
 
           {/* Toggle Screen Share */}
-          {visibleControls.screenShare && (
+          {/* {visibleControls.screenShare && (
             <TrackToggle
               size="icon"
               variant="secondary"
@@ -147,10 +147,10 @@ export function AgentControlBar({
               disabled={screenShareToggle.pending}
               onPressedChange={screenShareToggle.toggle}
             />
-          )}
+          )} */}
 
           {/* Toggle Transcript */}
-          <Toggle
+          {/* <Toggle
             size="icon"
             variant="secondary"
             aria-label="Toggle transcript"
@@ -158,7 +158,7 @@ export function AgentControlBar({
             onPressedChange={handleToggleTranscript}
           >
             <ChatTextIcon weight="bold" />
-          </Toggle>
+          </Toggle> */}
         </div>
 
         {/* Disconnect */}

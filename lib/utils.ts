@@ -82,3 +82,68 @@ export function getStyles(appConfig: AppConfig) {
     .filter(Boolean)
     .join('\n');
 }
+
+// Utility function to format timestamps for notifications
+export function formatTimestamp(timestamp: string | Date): string {
+  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+// Utility function to check if a URL is valid
+export function isValidUrl(url: string): boolean {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Utility function to truncate text with ellipsis
+export function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}...`;
+}
+
+// Notification position types
+export type NotificationPosition = 
+  | 'top-right'
+  | 'top-left'
+  | 'bottom-right'
+  | 'bottom-left'
+  | 'top-center'
+  | 'bottom-center'
+  | 'center';
+
+// Get position classes for notifications
+export function getPositionClasses(position: NotificationPosition): string {
+  const positionClasses = {
+    'top-right': 'top-6 right-6',
+    'top-left': 'top-6 left-6',
+    'bottom-right': 'bottom-6 right-6',
+    'bottom-left': 'bottom-6 left-6',
+    'top-center': 'top-6 left-1/2 transform -translate-x-1/2',
+    'bottom-center': 'bottom-6 left-1/2 transform -translate-x-1/2',
+    'center': 'top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2'
+  };
+  
+  return positionClasses[position] || positionClasses['top-right'];
+}
+
+// Generate a unique ID for notifications
+export function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// Debounce function to limit how often a function can be called
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  delay: number
+): (...args: Parameters<T>) => void {
+  let timeoutId: NodeJS.Timeout;
+  
+  return function(...args: Parameters<T>): void {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func(...args), delay);
+  };
+}

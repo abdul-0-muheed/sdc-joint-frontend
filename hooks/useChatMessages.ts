@@ -1,3 +1,4 @@
+// useChatMessages hook
 import { useMemo } from 'react';
 import { Room } from 'livekit-client';
 import {
@@ -9,6 +10,8 @@ import {
 } from '@livekit/components-react';
 
 function transcriptionToChatMessage(textStream: TextStreamData, room: Room): ReceivedChatMessage {
+  console.log('Converting transcription to chat message:', textStream);
+  
   return {
     id: textStream.streamInfo.id,
     timestamp: textStream.streamInfo.timestamp,
@@ -26,13 +29,27 @@ export function useChatMessages() {
   const chat = useChat();
   const room = useRoomContext();
   const transcriptions: TextStreamData[] = useTranscriptions();
+  
+  console.log('useChatMessages - transcriptions:', transcriptions);
+  console.log('useChatMessages - chatMessages:', chat.chatMessages);
 
   const mergedTranscriptions = useMemo(() => {
+    const transcriptionsAsMessages = transcriptions.map((transcription) => 
+      transcriptionToChatMessage(transcription, room)
+    );
+    
+    console.log('Transcriptions as messages:', transcriptionsAsMessages);
+    
     const merged: Array<ReceivedChatMessage> = [
-      ...transcriptions.map((transcription) => transcriptionToChatMessage(transcription, room)),
+      ...transcriptionsAsMessages,
       ...chat.chatMessages,
     ];
-    return merged.sort((a, b) => a.timestamp - b.timestamp);
+    
+    const sorted = merged.sort((a, b) => a.timestamp - b.timestamp);
+    
+    console.log('Sorted merged messages:', sorted);
+    
+    return sorted;
   }, [transcriptions, chat.chatMessages, room]);
 
   return mergedTranscriptions;

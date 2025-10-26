@@ -6,13 +6,92 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
-// Navigation data with links
-const navItems = [
-  { id: 1, text: 'Home', href: '/', icon: '🏠' },
-  { id: 2, text: 'Dashboard', href: '/dashboard', icon: '📊' },
-  { id: 3, text: 'Analytics', href: '/analytics', icon: '📈' },
-  { id: 4, text: 'Settings', href: '/settings', icon: '⚙️' },
-  { id: 5, text: 'Profile', href: '/profile', icon: '👤' },
+// Navigation data with categories and links
+const navCategories = [
+  {
+    id: 'agent-luffy',
+    text: 'Agent Luffy',
+    href: '/',
+    icon: '🏠',
+    description: 'Main dashboard'
+  },
+  {
+    id: 'admissions-academics',
+    text: 'Admissions & Academics',
+    icon: '📝',
+    children: [
+      { 
+        id: 'exam-timetable', 
+        text: 'Exam Timetable', 
+        href: '/AdmissionsAcademics/examtimetable', 
+        icon: '📅',
+        description: 'View and manage exam schedules'
+      }
+    ]
+  },
+  {
+    id: 'events-activities',
+    text: 'Events & Activities',
+    icon: '🎉',
+    children: [
+      { 
+        id: 'club-details', 
+        text: 'Club Details', 
+        href: '/EventsActivities/get_club_details', 
+        icon: '🏫',
+        description: 'Information about student clubs'
+      },
+      { 
+        id: 'upcoming-events', 
+        text: 'Upcoming Events', 
+        href: '/EventsActivities/UpcomingEvents', 
+        icon: '📅',
+        description: 'See upcoming campus events'
+      }
+    ]
+  },
+  {
+    id: 'student-assistance',
+    text: 'Student Assistance',
+    icon: '🛟',
+    children: [
+      { 
+        id: 'helpdesk-request', 
+        text: 'Helpdesk Request', 
+        href: '/StudentAssistance/HelpdeskRequest', 
+        icon: '❓',
+        description: 'Submit helpdesk requests'
+      },
+      { 
+        id: 'manage-helpdesk', 
+        text: 'Manage Helpdesk Requests', 
+        href: '/StudentAssistance/ManageHelpdeskRequests', 
+        icon: '🛠️',
+        description: 'Manage and track helpdesk tickets'
+      },
+      { 
+        id: 'manage-complaint', 
+        text: 'Manage Complaint', 
+        href: '/StudentAssistance/managepage', 
+        icon: '📋',
+        description: 'Manage and respond to complaints'
+      },
+      { 
+        id: 'submit-complaint', 
+        text: 'Submit Complaint', 
+        href: '/StudentAssistance/sumbitpage', 
+        icon: '✍️',
+        description: 'Submit a new complaint'
+      }
+    ]
+  },
+  {
+    id: 'login',
+    text: 'Login',
+    href: '/login',
+    icon: '🔑',
+    description: 'Access your account'
+  }
 ];
 
 // Create a motion-enhanced Link component instead of nesting <a> tags
@@ -20,10 +99,18 @@ const MotionLink = motion(Link);
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState({});
   const pathname = usePathname();
 
   const handleLinkClick = () => {
     setIsOpen(false);
+  };
+
+  const toggleCategory = (categoryId) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }));
   };
 
   // iOS-style spring animation with blur
@@ -60,7 +147,7 @@ export function Navbar() {
             "relative overflow-hidden",
             !isOpen 
               ? "rounded-2xl border border-white/20 bg-white/10 backdrop-blur-xl" 
-              : "flex w-64 flex-col rounded-3xl border border-white/20 bg-white/10 backdrop-blur-xl"
+              : "flex w-80 flex-col rounded-3xl border border-white/20 bg-white/10 backdrop-blur-xl"
           )}
           style={{
             boxShadow: !isOpen 
@@ -162,10 +249,10 @@ export function Navbar() {
               </div>
               
               {/* Navigation items with staggered animation */}
-              <div className="space-y-2">
-                {navItems.map((item, index) => (
+              <div className="space-y-1 max-h-[60vh] overflow-y-auto pr-2">
+                {navCategories.map((category, index) => (
                   <motion.div
-                    key={item.id}
+                    key={category.id}
                     initial={{ opacity: 0, x: -20, filter: "blur(3px)" }}
                     animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
                     transition={{ 
@@ -173,33 +260,143 @@ export function Navbar() {
                       ...springTransition 
                     }}
                   >
-                    <MotionLink
-                      href={item.href}
-                      onClick={handleLinkClick}
-                      whileHover={{ 
-                        x: 4,
-                        filter: "blur(0px)",
-                        transition: { type: "spring", stiffness: 300, damping: 20 }
-                      }}
-                      className={cn(
-                        "flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300",
-                        pathname === item.href 
-                          ? "bg-primary/20 text-primary shadow-lg backdrop-blur-sm" 
-                          : "text-foreground/80 hover:bg-background/10 hover:text-foreground"
-                      )}
-                    >
-                      <motion.span 
-                        className="text-xl"
+                    {category.children ? (
+                      // Category with children
+                      <>
+                        <motion.div
+                          onClick={() => toggleCategory(category.id)}
+                          whileHover={{ 
+                            x: 4,
+                            filter: "blur(0px)",
+                            transition: { type: "spring", stiffness: 300, damping: 20 }
+                          }}
+                          className={cn(
+                            "flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 cursor-pointer",
+                            pathname.startsWith(`/${category.id.split('-')[0]}`) 
+                              ? "bg-primary/20 text-primary shadow-lg backdrop-blur-sm" 
+                              : "text-foreground/80 hover:bg-background/10 hover:text-foreground"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <motion.span 
+                              className="text-xl"
+                              whileHover={{ 
+                                scale: 1.1,
+                                filter: "blur(0px)",
+                                transition: springTransition
+                              }}
+                            >
+                              {category.icon}
+                            </motion.span>
+                            <span className="font-medium">{category.text}</span>
+                          </div>
+                          <motion.div
+                            animate={{ rotate: expandedCategories[category.id] ? 90 : 0 }}
+                            transition={springTransition}
+                          >
+                            <svg 
+                              className="w-4 h-4" 
+                              aria-hidden="true" 
+                              xmlns="http://www.w3.org/2000/svg" 
+                              width="24" 
+                              height="24" 
+                              fill="none" 
+                              viewBox="0 0 24 24"
+                            >
+                              <path 
+                                stroke="currentColor" 
+                                strokeLinecap="round" 
+                                strokeWidth="2.5" 
+                                d="M9 5l7 7-7 7"
+                              />
+                            </svg>
+                          </motion.div>
+                        </motion.div>
+                        
+                        <AnimatePresence>
+                          {expandedCategories[category.id] && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0, filter: "blur(3px)" }}
+                              animate={{ height: "auto", opacity: 1, filter: "blur(0px)" }}
+                              exit={{ height: 0, opacity: 0, filter: "blur(3px)" }}
+                              transition={{ ...springTransition, duration: 0.3 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="pl-8 mt-1 space-y-1">
+                                {category.children.map((child, childIndex) => (
+                                  <motion.div
+                                    key={child.id}
+                                    initial={{ opacity: 0, x: -10, filter: "blur(2px)" }}
+                                    animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+                                    transition={{ 
+                                      delay: 0.1 + (childIndex * 0.03),
+                                      ...springTransition 
+                                    }}
+                                  >
+                                    <MotionLink
+                                      href={child.href}
+                                      onClick={handleLinkClick}
+                                      whileHover={{ 
+                                        x: 4,
+                                        filter: "blur(0px)",
+                                        transition: { type: "spring", stiffness: 300, damping: 20 }
+                                      }}
+                                      className={cn(
+                                        "flex items-center gap-3 px-4 py-2 rounded-xl transition-all duration-300",
+                                        pathname === child.href 
+                                          ? "bg-primary/20 text-primary shadow-lg backdrop-blur-sm" 
+                                          : "text-foreground/80 hover:bg-background/10 hover:text-foreground"
+                                      )}
+                                    >
+                                      <motion.span 
+                                        className="text-lg"
+                                        whileHover={{ 
+                                          scale: 1.1,
+                                          filter: "blur(0px)",
+                                          transition: springTransition
+                                        }}
+                                      >
+                                        {child.icon}
+                                      </motion.span>
+                                      <span className="font-medium text-sm">{child.text}</span>
+                                    </MotionLink>
+                                  </motion.div>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </>
+                    ) : (
+                      // Standalone item
+                      <MotionLink
+                        href={category.href}
+                        onClick={handleLinkClick}
                         whileHover={{ 
-                          scale: 1.1,
+                          x: 4,
                           filter: "blur(0px)",
-                          transition: springTransition
+                          transition: { type: "spring", stiffness: 300, damping: 20 }
                         }}
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300",
+                          pathname === category.href 
+                            ? "bg-primary/20 text-primary shadow-lg backdrop-blur-sm" 
+                            : "text-foreground/80 hover:bg-background/10 hover:text-foreground"
+                        )}
                       >
-                        {item.icon}
-                      </motion.span>
-                      <span className="font-medium">{item.text}</span>
-                    </MotionLink>
+                        <motion.span 
+                          className="text-xl"
+                          whileHover={{ 
+                            scale: 1.1,
+                            filter: "blur(0px)",
+                            transition: springTransition
+                          }}
+                        >
+                          {category.icon}
+                        </motion.span>
+                        <span className="font-medium">{category.text}</span>
+                      </MotionLink>
+                    )}
                   </motion.div>
                 ))}
               </div>
@@ -213,7 +410,7 @@ export function Navbar() {
               >
                 <div className="flex items-center gap-3 px-4 py-3 text-foreground/60">
                   <span className="text-lg">🌐</span>
-                  <span className="text-sm">v1.0.0</span>
+                  <span className="text-sm">Agent Luffy v1.0.0</span>
                 </div>
               </motion.div>
             </motion.div>

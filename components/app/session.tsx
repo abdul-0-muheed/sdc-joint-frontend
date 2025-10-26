@@ -14,9 +14,6 @@ import { ScrollArea } from '../livekit/scroll-area/scroll-area';
 import { ChatInput } from '@/components/livekit/agent-control-bar/chat-input';
 import { useChat, useRemoteParticipants, useTranscriptions } from '@livekit/components-react';
 import dynamic from 'next/dynamic';
-import StateBasedVideo from '@/components/app/tile-layout';
-import LiveKitMessageCloud from '@/components/app/LiveKitMessageCloud';
-
 
 // Dynamically import AgentControlBar to avoid potential circular dependencies
 const AgentControlBar = dynamic(
@@ -135,11 +132,8 @@ export const SessionView = ({
         {/* Center - Character area */}
         <div className="flex-1 flex flex-col items-center justify-center">
           {/* Black div for character/video with margins */}
-          <LiveKitMessageCloud />
-          <div className=" w-[90%] h-[85vh] mt-8 mb-4 rounded-xl flex items-center justify-center shadow-2xl">
+          <div className="bg-black w-[90%] h-[85vh] mt-8 mb-4 rounded-xl flex items-center justify-center shadow-2xl">
             {/* This is where you'll add the 3D character or video later */}
-           
-            <StateBasedVideo />
           </div>
           
           {/* Control buttons positioned above the character area */}
