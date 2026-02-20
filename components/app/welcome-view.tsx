@@ -21,16 +21,16 @@ function WelcomeImage() {
 
         const deltaX = event.clientX - eyeCenterX;
         const deltaY = event.clientY - eyeCenterY;
-        
+
         // Calculate the current angle using atan2 (returns -180 to 180)
         const currentAngle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
-        
+
         // Get the last recorded angle
         const lastAngle = lastAnglesRef.current[index];
-        
+
         // Calculate the difference between current and last angle
         let angleDiff = currentAngle - lastAngle;
-        
+
         // Handle the wrap-around case for smooth rotation
         // If the difference is greater than 180, it means we wrapped around clockwise
         if (angleDiff > 180) {
@@ -40,13 +40,13 @@ function WelcomeImage() {
         else if (angleDiff < -180) {
           angleDiff += 360;
         }
-        
+
         // Add the difference to our total rotation
         totalRotationsRef.current[index] += angleDiff;
-        
+
         // Store the current angle for the next frame
         lastAnglesRef.current[index] = currentAngle;
-        
+
         return totalRotationsRef.current[index];
       });
 
@@ -67,23 +67,23 @@ function WelcomeImage() {
         height={300}
         className="w-full h-auto max-w-[300px]"
       />
-      
+
       {/* Eyes positioned relative to the image */}
       <div className="absolute inset-0">
         {/* Left Eye */}
-        <img 
-          ref={(el) => eyeRefs.current[0] = el}
-          src="/eye.png" 
-          alt="eye" 
+        <img
+          ref={(el) => { eyeRefs.current[0] = el; }}
+          src="/eye.png"
+          alt="eye"
           className="absolute top-[68%] left-[47%] w-[23px] h-[23px] transition-transform duration-100 ease-out transform -translate-x-1/2 -translate-y-1/2"
           style={{ transform: `translate(-50%, -50%) rotate(${eyeRotations[0]}deg)` }}
         />
-        
+
         {/* Right Eye */}
-        <img 
-          ref={(el) => eyeRefs.current[1] = el}
-          src="/eye.png" 
-          alt="eye" 
+        <img
+          ref={(el) => { eyeRefs.current[1] = el; }}
+          src="/eye.png"
+          alt="eye"
           className="absolute top-[67%] right-[45%] w-[23px] h-[23px] transition-transform duration-100 ease-out transform translate-x-1/2 -translate-y-1/2"
           style={{ transform: `translate(50%, -50%) rotate(${eyeRotations[1]}deg)` }}
         />
